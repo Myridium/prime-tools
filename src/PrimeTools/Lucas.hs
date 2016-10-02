@@ -1,3 +1,13 @@
+{-|
+Module      : PrimeTools.Lucas
+Description : Exposes functions related to determining whether an Integer is a Lucas pseudoprime.
+Copyright   : (c) Murdock Grewar, 2016
+License     : MIT
+Stability   : experimental
+Portability : POSIX
+
+Exposes functions related to determining whether an Integer is a Lucas pseudoprime.
+-}
 module PrimeTools.Lucas (
                          lucasStrongPseudoPrime,
                          jacobiSymbol
@@ -46,9 +56,17 @@ lucasmod p q modbase k = lucasmodbin p q modbase (binList k)
           else 
             (genUV (doubleit (qk,uCurr,vCurr)) opList)
 
+
+lucasStrongPseudoPrime :: Integer -- ^The Lucas __P__ parameter.
+                       -> Integer -- ^The Lucas __Q__ parameter.
+                       -> Integer -- ^The candidate number.
+                       -> Bool    -- ^Whether the number is a Lucas pseudoprime with respect to the given Lucas parameters __P__ and __Q__.
 -- This test is only valid if 'num' does not divide '2q'.
 -- So if 'num' is indeed prime and greater than 2 (what we're trying to check) then this test will only
 -- confirm this if q is not a multiple of num. We ensure this by just aborting if q >= num
+
+-- |Will accept arguments in the form __P Q candidate__ and determine whether __candidate__ is a Lucas pseudoprime with respect to these parameters.
+-- Behaviour of this function is undefined for negative integers.
 lucasStrongPseudoPrime p q num
   | num == 2         = True
   | num `mod` 2 == 0 = False
@@ -82,9 +100,15 @@ lucasStrongPseudoPrime p q num = if (q >= num) then (error "Must choose Q < n") 
 reduceFactorsof2 n
   |  n `mod` 2 == 0 = reduceFactorsof2 (n `div` 2)
   |  otherwise      = n
+
+jacobiSymbol :: Integer -- ^__D__
+             -> Integer -- ^__n__
+             -> Integer -- ^The __Jacobi Symbol (D/n)__
+
 -- Assumes odd d and positive n. Works well when the smaller argument is easily factorisable
 -- Also assumes that 'n' is positive!!
 -- Note that this -1 case works because 'n' is always odd!
+-- |Compute the __Jacobi Symbol__ (D/n).
 jacobiSymbol (-1) n
   | n `rem` 2 == 0 = jacobiSymbol (-1) (reduceFactorsof2 n)
   | n `rem` 4 == 1 = 1

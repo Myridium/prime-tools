@@ -1,7 +1,27 @@
--- A module for primality testing --
+{-|
+Module      : PrimeTools.PQTrials
+Description : Functions for testing the (pseudo)primality of an Integer.
+Copyright   : (c) Murdock Grewar, 2016
+License     : MIT
+Stability   : experimental
+Portability : POSIX
 
+Functions for testing the (pseudo)primality of an 'Integer'.
+
+The function of greatest interest is probably 'primeQ'.
+-}
 module PrimeTools.PQTrials (
-                            primeQ
+                            primeQ,
+                            primeQD,
+                            primeQP,
+
+                            PResult(..),
+                            TrialMethodD(..),
+                            TrialMethodP(..),
+                            TrialDivisionParams(..),
+                            FermatParams(..),
+                            LucasParams(..),
+                            MillerRabinParams(..)
                            )
   where
 
@@ -14,26 +34,48 @@ import qualified Data.MemoCombinators as Memo
 import qualified Math.NumberTheory.Powers.Squares as Squares
 import qualified Math.NumberTheory.Powers as Powers
 
--- A TypeClass of different methods by which to check a prime --
-data TrialMethodD = TrialDivisionD | APR
-data PResult      = Composite | Prime | ProbablePrime | Unknown 
+-- |A __datatype__ representing a method of deterministic primality checking.
+data TrialMethodD = TrialDivisionD -- ^Basic __Trial Division__. This method will not terminate in any reasonable time for sufficiently large 'Integer's.
+-- APR
+
+
+-- |A __datatype__ representing the outcome of probabilistic primality check.
+data PResult      = Composite     -- ^The candidate is certainly composite.
+                  | Prime         -- ^The candidate is certainly prime.
+                  | ProbablePrime -- ^The candidate passed the primality check, but may be a pseudoprime.
+                  | Unknown       -- ^An unspecified issue occurred when attempting the primality check.
   deriving (Show,Eq)
-data TrialMethodP = 
+
+-- |A __datatype__ representing a method of probabilistic primality checking.
+data TrialMethodP =
+                  -- |The __Baillie-PSW__ algorithm.
                   PSW
+                  -- |An attempt at __Trial Division__ which terminates at some upper bound specified by the provided 'TrialDivisionParams'.
                   | TrialDivisionP TrialDivisionParams
+                  -- |A __strong__ Lucas pseudoprimality test with the parameters specified by the provided 'LucasParams'.
                   | Lucas          LucasParams
+                  -- |A __Miller-Rabin__ primality check with respect to the modular base (a.k.a. \"Witness\") specified by 'MillerRabinParams'.
                   | MillerRabin    MillerRabinParams
+                  -- |A __Fermat__ primality check against exponential bases from 2 up to an upper bound specified by 'FermatParams'.
                   | Fermat         FermatParams
 -- Each of these methods is a datatype which stores the parameters with which to test --
-data TrialDivisionParams = TrialDivPrimes Integer   -- Max number of primes with which to test
-data FermatParams        = FermatUpperBound Integer -- The upper bound of 'a' in (a^(p-1) = 1 mod p)
-data LucasParams         = LucasPQ Integer Integer
-data MillerRabinParams   = MRWitness Integer
+-- |Parameters for the 'TrialDivisionD' constructor of 'TrialMethodD'.
+data TrialDivisionParams = TrialDivPrimes Integer   -- ^The 'Integer' specifies the maximum number of primes with which to trial divide.
 
--- Will just perform trial division on all primes up to the square root of the number --
+-- |Parameters for the 'Fermat' constructor of 'TrialMethodP'.
+data FermatParams        = FermatUpperBound Integer -- ^The 'Integer' is the upper bound of 'a' in (a^(p-1) = 1 mod p)
 
--- The default method for checking primality --
+-- |Parameters for the 'Lucas' constructor of 'TrialMethodP'.
+data LucasParams         = LucasPQ Integer Integer  -- ^The parameter __P__ followed by __Q__.
+
+-- |Parameters for the 'MillerRabin' constructor of 'TrialMethodP'.
+data MillerRabinParams   = MRWitness Integer        -- ^The 'Integer' is the \"Witness\".
+
+
 primeQ  :: Integer -> Bool
+-- |The default method for checking primality. It perfoms a Baillie-PSW primality test using 'primeQP' and assumes a 'ProbablePrime' to be 'Prime'.
+--
+-- As such, it is equivalent to using 'primeQP' with the 'PSW' constructor of 'TrialMethodP', except for /assuming/ that something which is a 'ProbablePrime' according to this test is indeed a genuine prime.
 primeQ num = (result == ProbablePrime) || (result == Prime)
   where
     result = {-# SCC primeQ_PSW #-} (primeQP PSW num)
@@ -41,7 +83,11 @@ primeQ num = (result == ProbablePrime) || (result == Prime)
 
 -- "P" meaning probabilistic; "D" meaning deterministic
 
-primeQD :: TrialMethodD -> Integer -> Bool
+primeQD :: TrialMethodD -- ^A 'TrialMethodD' datatype specifying a deterministic primality-checking method.
+        -> Integer      -- ^The 'Integer' whose primality is in question.
+        -> Bool         -- ^A 'Bool' indicating whether the tested 'Integer' is prime.
+
+-- |'primeQD' accepts a 'TrialMethodD' by which to test the primality of a given 'Integer'. It then returns 'True' if the integer is prime, and 'False' if it is composite.
 primeQD _ 1   = False
 primeQD TrialDivisionD num = primeQTrialDivD num
 
@@ -52,7 +98,12 @@ trialDs1 :: [Integer]
 trialDs2 :: [Integer]
 -- I'm not sure, but I think that a non-square number will always have a D which yields a Jacobi Symbol of -1. So I don't truncate the second list.
 (trialDs1,trialDs2) = splitAt 30 (zipWith (*) (cycle [1,-1]) [5,7..])
-primeQP :: TrialMethodP -> Integer -> PResult
+
+primeQP :: TrialMethodP -- ^A 'TrialMethodP' datatype specifying a probabilistic primality-checking method.
+        -> Integer      -- ^The 'Integer' whose primality is in question.
+        -> PResult      -- ^A 'PResult' datatype indicating what is determined about the primality.
+
+-- |'primeQP' uses a given 'TrialMethodP' to determine the primality of a given 'Integer'.
 primeQP _ 1   = Composite
 primeQP (TrialDivisionP (TrialDivPrimes nop)) num = primeQTrialDivP num nop
 primeQP (Fermat (FermatUpperBound upperBound)) num = 
