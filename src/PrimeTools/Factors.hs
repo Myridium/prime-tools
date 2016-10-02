@@ -1,3 +1,15 @@
+{-|
+Module      : PrimeTools.Factors
+Description : Tools for factorising Integers and performing related functions.
+Copyright   : (c) Murdock Grewar, 2016
+License     : MIT
+Stability   : experimental
+Portability : POSIX
+
+Tools for factorising 'Integer's and performing related functions.
+
+Some of these functions are refined versions of ones hidden within "PrimeTools.Base".
+-}
 module PrimeTools.Factors (
                            pfactor,
                            cprimes,
@@ -11,13 +23,18 @@ module PrimeTools.Factors (
 
 import PrimeTools.Base
 import PrimeTools.PQTrials
+import PrimeTools.MathStuff
 import qualified Math.NumberTheory.Powers.Squares as Squares
 import qualified Data.PQueue.Prio.Min as PQ
 import Data.List
 
 -- Improved version of hidden Base methods:
+pfactor :: Integer             -- ^The 'Integer' to factorise.
+        -> [(Integer,Integer)] -- ^A list of tuples of the form (prime,power) ordered by increasing prime.
 
-pfactor :: Integer -> [(Integer,Integer)]
+-- |WARNING: This function is currently very poorly optimised. It simply uses a combination of trial division and primality checking.
+--
+-- 'pfactor' will find the prime factorisation of an 'Integer'.
 pfactor num = pfactorstartfromprimeindex 0 num
   where
   pfactorstartfromprimeindex :: Integer -> Integer -> [(Integer,Integer)]
@@ -40,6 +57,10 @@ pfactor num = pfactorstartfromprimeindex 0 num
           | pind > 10000 = if (primeQ num) then Nothing else find (\p -> num `rem` p == 0) (takeWhile (\p -> p <= upperBound) (genericDrop pind primes))
           | otherwise  = find (\p -> num `rem` p == 0) (takeWhile (\p -> p <= upperBound) (genericDrop pind primes))
 
+cprimes :: [Integer] -- ^ A list of 'Integer' for whom coprime 'Integer's will be found.
+        -> [Integer] -- ^ The list of coprime 'Integer's.
+
+-- |'cprimes' will generate a list of 'Integer's coprime to the given list.
 cprimes relnums = cprimes' simplifiedRelNums
   where
     simplifiedRelNums = map fst (pfactor (product relnums))
@@ -69,11 +90,21 @@ cprimes relnums = cprimes' simplifiedRelNums
                     where
                       (n, n':ns) = PQ.findMin table
 
-tot n = length $ takeWhile (\a -> a < n) (cprimes [n])
+tot :: Integer -- ^The <Integer> to apply Euler's Totient function to.
+    -> Integer -- ^The number of integers in the range '[2,input]' which are coprime to the input.
+
+-- |Euler's Totient function.
+tot n = genericLength $ takeWhile (\a -> a < n) (cprimes [n])
 
 --------------------------
 
-mylcm :: [Integer] -> Integer
+mylcm :: [Integer] -- ^The list of 'Integer's whose lowest common multiple is to be found.
+      -> Integer   -- ^The lowest common denominator of the given 'Integer's.
+
+
+-- |WARNING: This function is currently very poorly optimised, since it relies on 'pfactor' which is itself poorly optimised.
+--
+-- 'mylcm' will find the lowest common multiple of a list of 'Integer's.
 mylcm numList = punfactor (incorporateFactors [] (factorLists numList))
   where
     factorLists :: [Integer] -> [[(Integer,Integer)]]
@@ -91,7 +122,12 @@ mylcm numList = punfactor (incorporateFactors [] (factorLists numList))
                 Nothing -> 0
                 Just (b,p) -> p
 
-mygcd :: [Integer] -> Integer
+mygcd :: [Integer] -- ^The list of 'Integer's whose greatest common divisor is to be found.
+      -> Integer   -- ^The greatest common divisor of the given 'Integer's.
+
+-- |WARNING: This function is currently very poorly optimised, since it relies on 'pfactor' which is itself poorly optimised.
+--
+-- 'mygcd' will find the greatest common divisor of a list of 'Integer's.
 mygcd []            = 1
 mygcd ns            = punfactor (gcdFactorLists $ map pfactor ns)
   where
@@ -110,10 +146,26 @@ mygcd ns            = punfactor (gcdFactorLists $ map pfactor ns)
               | (fst nbp < fst nap) = orderedPairGcdFactorLists (nap:na) nb table
               | otherwise           = (orderedPairGcdFactorLists na nb ((fst nap, min (snd nap) (snd nbp)):table))
 
--- Poorly optimized: --
-numFactors :: Integer -> Integer
+numFactors :: Integer -- ^The 'Integer' whose number of factors is to be determined.
+           -> Integer -- ^The number of factors.
+
+-- |WARNING: This function is currently very poorly optimised, since it relies on 'pfactor' which is itself poorly optimised.
+--
+-- 'numFactors' will compute the number of factors of a given 'Integer' (including 1 and itself).
+--
+-- This function may or may not be faster than instead using 'genericLength' and 'factors' like so:
+--
+-- > genericLength.factors
+--
+-- In any case, it is certainly not slower, and so should be used when the explicit factors themselves are not required.
 numFactors num = product $ map (\pair -> 1 + (snd pair)) (pfactor num)
-factors :: Integer -> [Integer]
+
+factors :: Integer   -- ^The 'Integer' to factorise.
+        -> [Integer] -- ^The complete list of factors.
+
+-- |WARNING: This function is currently very poorly optimised, since it relies on 'pfactor' which is itself poorly optimised.
+--
+-- 'factors' will output the complete list of factors of a given 'Integer' (including 1 and itself) in no particular order.
 factors num = map punfactor factoredLists
   where
     factoredLists = map (\(baseList,expList) -> (zipWith (\b e -> (b,e)) baseList expList)) (baseexponentlistpairs num)
