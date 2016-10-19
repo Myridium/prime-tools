@@ -11,6 +11,7 @@ Convenience methods for use in other modules.
 module PrimeTools.MathStuff (
                   maximals,
                   powmod,
+                  pow2mododd,
                   punfactor
                  )
   where
@@ -56,6 +57,20 @@ baserizeE base k = baserizeETab k []
       where
         kdivmod = k `divMod` base
 
+-- I don't understand why, but the NAF always has a leading 1. This makes things easy.
+naf :: Integer -> [Int]
+naf num = nafTab num []
+  where
+    nafTab :: Integer -> [Int] -> [Int]
+    nafTab 0   xs    = xs
+    nafTab num xs
+      | mod2 == 0    = nafTab (div2)  (0     :xs)
+      | otherwise    = nafTab ((num - redVal) `div` 2) ((fromIntegral redVal):xs)
+        where
+          redVal :: Integer
+          (div2, mod2) = num `divMod` 2
+          redVal       = 2 - (num `mod` 4)
+
 powmod :: Integer -- ^The exponential base __b__.
        -> Integer -- ^The exponent __e__.
        -> Integer -- ^The modular base __n__.
@@ -69,6 +84,21 @@ powmod num pow modbase = (foldl' operate (num `rem` modbase) opList) `mod` modba
     operate :: Integer -> Int -> Integer
     operate k 0 = (k*k)      `rem` modbase
     operate k 1 = (k*k*num)  `rem` modbase
+
+pow2mododd :: Integer -- ^The exponent __e__.
+       -> Integer -- ^The modular base __n__.
+       -> Integer -- ^The result @2^e mod n@ as a positively signed 'Integer'.
+
+-- |Efficiently computes @2^e mod n@ for large values of each. Only works for odd @n@. Faster than 'powmod'. Undefined behaviour for even @n@.
+pow2mododd pow modbase = (foldl' operate (2 `rem` modbase) opList) `mod` modbase
+  where
+    inv2 = (modbase+1) `div` 2
+    opList :: [Int]
+    opList = drop 1 $ {-# SCC naf #-} naf pow
+    operate :: Integer -> Int -> Integer
+    operate k 0    = (k*k)      `rem` modbase
+    operate k 1    = (k*k*2)    `rem` modbase
+    operate k (-1) = (k*k*inv2) `rem` modbase
 
 -- This method is left in as a methodological object of interest. The method above for large modular powers is slightly more efficient, but the method below allows for it to be implemented in an arbitrary base.
 lpm num pow modbase base = (foldl' operate (beginNum) (drop 1 $ expansionList)) `mod` modbase
