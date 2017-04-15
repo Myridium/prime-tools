@@ -8,6 +8,7 @@ Portability : POSIX
 
 Convenience methods for use in other modules.
 -}
+{-# LANGUAGE BangPatterns #-}
 module PrimeTools.MathStuff (
                   maximals,
                   powmod,
@@ -89,16 +90,26 @@ pow2mododd :: Integer -- ^The exponent __e__.
        -> Integer -- ^The modular base __n__.
        -> Integer -- ^The result @2^e mod n@ as a positively signed 'Integer'.
 
--- |Efficiently computes @2^e mod n@ for large values of each. Only works for odd @n@. Faster than 'powmod'. Undefined behaviour for even @n@.
-pow2mododd pow modbase = (foldl' operate (2 `rem` modbase) opList) `mod` modbase
+
+log2Ceil :: Integer -> Integer
+log2Ceil !x
+  | x == 0    = 0
+  | otherwise = 1 + (log2Ceil $ x `div` 2)
+
+-- |Efficiently computes @2^e mod n@ for large values of each. Only works for odd @n@ and positive @e@ and @n@. Faster than 'powmod'. Undefined behaviour for even @n@ or nonpositive parameters.
+pow2mododd pow modbase = ((powmod x a modbase) * (powmod 2 b modbase)) `rem` modbase
   where
-    inv2 = (modbase+1) `div` 2
-    opList :: [Int]
-    opList = drop 1 $ {-# SCC naf #-} naf pow
-    operate :: Integer -> Int -> Integer
-    operate k 0    = (k*k)      `rem` modbase
-    operate k 1    = (k*k*2)    `rem` modbase
-    operate k (-1) = (k*k*inv2) `rem` modbase
+
+    n     :: Integer
+    x     :: Integer
+    n     = log2Ceil modbase
+    x     = 2^n - modbase
+
+    a     :: Integer
+    b     :: Integer
+    (a,b) = pow `quotRem` n
+
+
 
 -- This method is left in as a methodological object of interest. The method above for large modular powers is slightly more efficient, but the method below allows for it to be implemented in an arbitrary base.
 lpm num pow modbase base = (foldl' operate (beginNum) (drop 1 $ expansionList)) `mod` modbase
